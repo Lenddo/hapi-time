@@ -1,5 +1,5 @@
 {
-  "name": "hapi-time",
+  "name": "@lenddo/hapi-time",
   "version": "1.2.2",
   "description": "Job scheduling plugin for Hapi based on Agenda.",
   "main": "index.js",
