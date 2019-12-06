@@ -23,10 +23,10 @@
   "author": "angelstoone",
   "license": "MIT",
   "dependencies": {
-    "agenda": "^0.8.0",
-    "joi": "^8.0.4",
-    "lodash": "^4.6.1",
-    "recursive-readdir": "^2.0.0"
+    "agenda": "2.2.0",
+    "joi": "14.3.1",
+    "lodash": "4.17.15",
+    "recursive-readdir": "2.2.2"
   },
   "devDependencies": {
     "code": "^2.1.0",
