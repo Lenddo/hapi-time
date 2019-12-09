@@ -79,14 +79,86 @@ exports.register = function (server, options, next) {
 				delete jobOpts.job;
 			}
 
-			agenda.define(jobName, jobOpts, (agendaJob, done) => {
-				server.log(['agenda', 'queue'], { jobName: jobName, job: agendaJob.attrs });
-				jobFunction(server, agendaJob, done);
-			});
+			try {
+				agenda.define(jobName, jobOpts, (agendaJob, done) => {
+					server.log(['agenda', 'queue'], { jobName: jobName, job: agendaJob.attrs });
+					jobFunction(server, agendaJob, done);
+				});
+
+				(async function() {
+					await agenda.start();
+				})();
+			} catch (e) {
+				console.error(e);
+			}
+
 		});
 
 		agenda.on('ready', () => {
 			server.log(['agenda', 'ready']);
+
+			if (options.every) {
+				_.forIn(options.every, (jobOpts, jobInterval) => {
+					if (typeof jobOpts === 'string') {
+						agenda.every(jobInterval, jobOpts);
+					} else {
+						_.forIn(jobOpts, (value, key) => {
+							if (typeof value === 'string') {
+								agenda.every(jobInterval, value);
+							} else {
+								if (value.data != undefined) {
+									if (value.options == undefined) {
+										agenda.every(jobInterval, key, value.data);
+									} else {
+										agenda.every(jobInterval, key, value.data, value.options);
+									}
+								}
+								else {
+									_.forIn(value, (v, k) => {
+										if (v.data != undefined) {
+											if (v.options == undefined) {
+												agenda.every(jobInterval, k, v.data);
+											} else {
+												agenda.every(jobInterval, k, v.data, v.options);
+											}
+										} else {
+											agenda.every(jobInterval, k);
+										}
+									});
+								}
+							}
+						});
+					}
+				});
+			}
+
+			// https://github.com/rschmukler/agenda#schedulewhen-name-data-cb
+			if (options.schedule) {
+				_.forIn(options.schedule, (jobOpts, when) => {
+					if (typeof jobOpts === 'string') {
+						agenda.schedule(when, jobOpts);
+					} else {
+						_.forIn(jobOpts, (value, key) => {
+							if (typeof value === 'string') {
+								agenda.schedule(when, value);
+							} else {
+								if (value.data != undefined) {
+									agenda.schedule(when, key, value.data);
+								} else {
+									_.forIn(value, (v, k) => {
+										if (v.data == undefined) {
+											agenda.schedule(when, k);
+										} else {
+											agenda.schedule(when, k, v.data);
+										}
+									});
+								}
+							}
+						});
+					}
+				});
+			}
+			agenda.start();
 
 			agenda.cancel({}, (err, numRemoved) => {
 				if (err) {
@@ -96,71 +168,6 @@ exports.register = function (server, options, next) {
 				if (numRemoved > 0) {
 					server.log(['agenda', 'delete'], { jobsRemoved: numRemoved });
 				}
-
-				// https://github.com/rschmukler/agenda#everyinterval-name-data-options-cb
-				if (options.every) {
-					_.forIn(options.every, (jobOpts, jobInterval) => {
-						if (typeof jobOpts === 'string') {
-							agenda.every(jobInterval, jobOpts);
-						} else {
-							_.forIn(jobOpts, (value, key) => {
-								if (typeof value === 'string') {
-									agenda.every(jobInterval, value);
-								} else {
-									if (value.data != undefined) {
-										if (value.options == undefined) {
-											agenda.every(jobInterval, key, value.data);
-										} else {
-											agenda.every(jobInterval, key, value.data, value.options);
-										}
-									}
-									else {
-										_.forIn(value, (v, k) => {
-											if (v.data != undefined) {
-												if (v.options == undefined) {
-													agenda.every(jobInterval, k, v.data);
-												} else {
-													agenda.every(jobInterval, k, v.data, v.options);
-												}
-											} else {
-												agenda.every(jobInterval, k);
-											}
-										});
-									}
-								}
-							});
-						}
-					});
-				}
-
-				// https://github.com/rschmukler/agenda#schedulewhen-name-data-cb
-				if (options.schedule) {
-					_.forIn(options.schedule, (jobOpts, when) => {
-						if (typeof jobOpts === 'string') {
-							agenda.schedule(when, jobOpts);
-						} else {
-							_.forIn(jobOpts, (value, key) => {
-								if (typeof value === 'string') {
-									agenda.schedule(when, value);
-								} else {
-									if (value.data != undefined) {
-										agenda.schedule(when, key, value.data);
-									} else {
-										_.forIn(value, (v, k) => {
-											if (v.data == undefined) {
-												agenda.schedule(when, k);
-											} else {
-												agenda.schedule(when, k, v.data);
-											}
-										});
-									}
-								}
-							});
-						}
-					});
-				}
-				agenda.start();
-				next();
 			});
 		});
 	});
@@ -170,11 +177,6 @@ exports.register = function (server, options, next) {
 
 	// http://hapijs.com/api#serverbindcontext
 	server.bind({ agenda: agenda });
-
-	// http://hapijs.com/api#server-events
-	// server.on('start', () => {
-	//     // Server starting...
-	// });
 };
 
 exports.register.attributes = {
